@@ -58,7 +58,7 @@ sub check_uptime {
 		return 1;
 	}
 
-	return undef;
+	return;
 }
 
 sub extract_time {
@@ -102,7 +102,7 @@ sub fetch_image_version {
 	my $filename = '/vmlinuz';
 	my $image_version;
 
-	open( IN, $filename ) or croak "Can't open $filename: $!";
+	open (my $fh, '<', $filename) or croak "Can't open $filename: $!";
 
 # This is a fast but ugly implementation of strings(1), taken from Perl Power Tools (ppt)
 
@@ -113,13 +113,13 @@ sub fetch_image_version {
 	my $printable = '\w \t' . $punctuation;
 	my $string;
 
-	while ( $_ or read( IN, $_, $chunksize ) ) {
+	while ( $_ or read( $fh, $_, $chunksize ) ) {
 		$offset += length($1) if s/^([^$printable]+)//o;
 		$string = '';
 
 		do {
 			$string .= $1 if s/^([$printable]+)//o;
-		} until ( $_ or ! read( IN, $_, $chunksize ) );
+		} until ( $_ or ! read( $fh, $_, $chunksize ) );
 
 # Longer than
 # #1 SMP Fri Sep 18 11:50:10 UTC 2009
@@ -131,7 +131,7 @@ sub fetch_image_version {
 
 		$offset += length($string);
 	}
-	close IN;
+	close $fh;
 
 
 	croak "Didn't get a version line out of /vmlinuz" unless $image_version;
