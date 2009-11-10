@@ -20,121 +20,119 @@ my $versionRE = qr/
 /x;
 
 my $running_version = fetch_running_version();
-my $image_version = fetch_image_version();
+my $image_version   = fetch_image_version();
 
-if ($running_version ne $image_version) {
-	print "WARNING: Mismatch between running ($running_version) and image ($image_version) kernel build time\n";
-	exit 1;
+if ( $running_version ne $image_version ) {
+    print
+"WARNING: Mismatch between running ($running_version) and image ($image_version) kernel build time\n";
+    exit 1;
 }
 
-if (check_uptime($running_version)) {
-	print "WARNING: Uptime exceeds kernel build time\n";
-	exit 1;
+if ( check_uptime($running_version) ) {
+    print "WARNING: Uptime exceeds kernel build time\n";
+    exit 1;
 }
 
 print "OK: Running Kernel matches installed version ($running_version)\n";
 exit 0;
 
-
 ########
 # Subs #
 ########
 
-
 sub check_uptime {
 
-	my ($version) = @_;
+    my ($version) = @_;
 
-	my $date = $version;
+    my $date = $version;
 
-# Strip everything in front of the weekday
-	$date =~ m/.*((:?Mon|Tue|Wed|Thu|Fri|Sat|Sun).*)/;
-	$date = $1;
+    # Strip everything in front of the weekday
+    $date =~ m/.*((:?Mon|Tue|Wed|Thu|Fri|Sat|Sun).*)/;
+    $date = $1;
 
-	my $uptime = fetch_uptime();
-	my $kernel_build_time = extract_time($date);
+    my $uptime            = fetch_uptime();
+    my $kernel_build_time = extract_time($date);
 
-	if ((time() - $uptime) <= $kernel_build_time) {
-		return 1;
-	}
+    if ( ( time() - $uptime ) <= $kernel_build_time ) {
+        return 1;
+    }
 
-	return;
+    return;
 }
 
 sub extract_time {
-	my ($date) = @_;
+    my ($date) = @_;
 
-
-	my $time = str2time($date);
-	croak "Failed to extract time from $date" unless $time;
-	return $time;
+    my $time = str2time($date);
+    croak "Failed to extract time from $date" unless $time;
+    return $time;
 }
 
 sub fetch_uptime {
 
-	my $uptime = read_file('/proc/uptime');
+    my $uptime = read_file('/proc/uptime');
 
-# Only take the first number (actual uptime)
-	$uptime =~ m/^(\d+)/;
-	$uptime = $1;
+    # Only take the first number (actual uptime)
+    $uptime =~ m/^(\d+)/;
+    $uptime = $1;
 
-	croak "Didn't get uptime from /proc/uptime" unless $uptime;
+    croak "Didn't get uptime from /proc/uptime" unless $uptime;
 
-	return $uptime;
+    return $uptime;
 }
 
 sub fetch_running_version {
 
-	my $version_line = read_file('/proc/version');
+    my $version_line = read_file('/proc/version');
+
 # eg:
 # Linux version 2.6.30-bpo.2-amd64 (Debian 2.6.30-7~bpo50+1) (nobse@debian.org) (gcc version 4.3.2 (Debian 4.3.2-1.1) ) #1 SMP Fri Sep 18 11:50:10 UTC 2009
 
-	my ($running_version) = $version_line =~ m/$versionRE/;
+    my ($running_version) = $version_line =~ m/$versionRE/;
 
-	croak "Didn't get a version line out of /proc/version" unless $running_version;
+    croak "Didn't get a version line out of /proc/version"
+      unless $running_version;
 
-	return $running_version;
+    return $running_version;
 }
-
 
 sub fetch_image_version {
 
-	my $filename = '/vmlinuz';
-	my $image_version;
+    my $filename = '/vmlinuz';
+    my $image_version;
 
-	open (my $fh, '<', $filename) or croak "Can't open $filename: $!";
+    open( my $fh, '<', $filename ) or croak "Can't open $filename: $!";
 
 # This is a fast but ugly implementation of strings(1), taken from Perl Power Tools (ppt)
 
-	my $offset = 0;
-	my $chunksize = 4096;
+    my $offset    = 0;
+    my $chunksize = 4096;
 
-	my $punctuation = join '\\', split //, q/`~!@#$%^&*()-+={}|[]\:";'<>?,.\//;
-	my $printable = '\w \t' . $punctuation;
-	my $string;
+    my $punctuation = join '\\', split //, q/`~!@#$%^&*()-+={}|[]\:";'<>?,.\//;
+    my $printable = '\w \t' . $punctuation;
+    my $string;
 
-	while ( $_ or read( $fh, $_, $chunksize ) ) {
-		$offset += length($1) if s/^([^$printable]+)//o;
-		$string = '';
+    while ( $_ or read( $fh, $_, $chunksize ) ) {
+        $offset += length($1) if s/^([^$printable]+)//o;
+        $string = '';
 
-		do {
-			$string .= $1 if s/^([$printable]+)//o;
-		} until ( $_ or ! read( $fh, $_, $chunksize ) );
+        do {
+            $string .= $1 if s/^([$printable]+)//o;
+        } until ( $_ or !read( $fh, $_, $chunksize ) );
 
-# Longer than
-# #1 SMP Fri Sep 18 11:50:10 UTC 2009
+        # Longer than
+        # #1 SMP Fri Sep 18 11:50:10 UTC 2009
 
-		if ( length($string) >= 40 && $string =~ m/$versionRE/) {
-			$image_version = $1;
-			last;
-		}
+        if ( length($string) >= 40 && $string =~ m/$versionRE/ ) {
+            $image_version = $1;
+            last;
+        }
 
-		$offset += length($string);
-	}
-	close $fh;
+        $offset += length($string);
+    }
+    close $fh;
 
+    croak "Didn't get a version line out of /vmlinuz" unless $image_version;
 
-	croak "Didn't get a version line out of /vmlinuz" unless $image_version;
-
-	return $image_version;
+    return $image_version;
 }
