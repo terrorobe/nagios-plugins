@@ -2,6 +2,16 @@
 
 # Author: Michael Renner <michael.renner@amd.co.at>
 
+# License: Unclear due to ppt's unclear licensing status
+# See http://search.cpan.org/~cwest/ppt-0.14/
+
+# This module checks if the current running kernel matches the installed one.
+# It does this by comparing the output of /proc/version with the version string
+# found in the kernel image at /vmlinuz
+#
+# As an additional (albeit superfluous?) check it compares if the current
+# exceeds the build date of the current running kernel.
+
 use strict;
 use warnings;
 
