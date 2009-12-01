@@ -6,16 +6,10 @@
 # See http://search.cpan.org/~cwest/ppt-0.14/
 
 # This module checks if the current running kernel matches the installed one.
-# It does this by comparing the output of /proc/version with the version string
-# found in the kernel image at /vmlinuz
-#
-# As an additional (albeit superfluous?) check it compares if the current
-# exceeds the build date of the current running kernel.
+# See documentation at the end of the file or use --help
 
 
 # Todo:
-# *) getopt
-# *) help
 # *) testen mit:
 # *) sles
 # *) fedora/centos/rhel
@@ -34,13 +28,16 @@ use Carp;
 my $help;
 my $kernel_image;
 my $heuristic;
+my $options;
 
 GetOptions(
 		'help|h'		=> \$help,
+		'options'		=> \$options,
 		'kernel-image|k:s'	=> \$kernel_image,
 		'heuristic'		=> \$heuristic,
 ) or pod2usage( -verbose => 0 );
 
+pod2usage( -verbose => 1 ) if ($options);
 pod2usage( -verbose => 2 ) if ($help);
 
 my $versionRE = qr/
@@ -157,3 +154,66 @@ sub find_kernel_image {
 	}
 	croak "Heuristic couldn't find a kernel image matching /vmlinuz* or /boot/vmlinuz*\n";
 }
+
+__END__
+
+=head1 NAME
+
+check_kernel_freshness - A Nagios plugin to check if a given Linux system is running the installed kernel
+
+
+=head1 SYNOPSIS
+
+check_kernel_freshness [ -k --kernel-image filename ] [ --heuristic ]
+
+
+   Options:
+  -k, --kernel-image	Filename of the kernel image to check (default: /vmlinuz)
+      --heuristic	Enable heuristic to search for a kernel image filename
+      --options		Show description for options
+  -h, --help		Show complete documentation
+
+
+=head1 OPTIONS
+
+=over 8
+
+=item B<--kernel-image>
+
+Filename of the kernel image to check.
+
+B<Default>: /vmlinuz
+
+=item B<--heuristic>
+
+Enables heuristic to search for a kernel image filename.
+
+When enabled, the plugin will search first / and then /boot for
+
+=over
+
+=item *) A symlink whose name starts with vmlinuz.
+
+If multiple symlinks are found, the symlink with the shortest name is used
+
+=item *) A file whose name starts with vmlinuz.
+
+If multiple files are found, the list is sorted lexically and the highest filename is used
+
+=back
+
+The first matching occurance is then used.
+
+=back
+
+=head1 DESCRIPTION
+
+B<check_kernel_freshness> is a Nagios plugin which checks if the running kernel matches the version of the installed kernel.
+
+This is useful to see if a server needs to be rebooted after a kernel upgrade.
+
+=head2 Modus operandi
+
+This plugin compares kernel version and build timestamp gathered from /proc/version with a string containing similiar information in a given kernel image. If kernel version or timestamp shouldn't match, a warning is raised.
+
+=cut
