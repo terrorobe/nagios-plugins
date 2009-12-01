@@ -41,7 +41,7 @@ GetOptions(
 		'heuristic'		=> \$heuristic,
 ) or pod2usage( -verbose => 0 );
 
-pod2usage( --verbose => 2 ) if ($help);
+pod2usage( -verbose => 2 ) if ($help);
 
 my $versionRE = qr/
 	.*	# Match as much as possible
@@ -54,7 +54,7 @@ my $versionRE = qr/
 /x;
 
 my $running_version = fetch_running_version();
-my $image_version   = fetch_image_version($kernel_image);
+my ($filename, $image_version)   = fetch_image_version($kernel_image);
 
 if ( $running_version ne $image_version ) {
     print
@@ -62,7 +62,7 @@ if ( $running_version ne $image_version ) {
     exit 1;
 }
 
-print "OK: Running Kernel ($running_version) matches installed version ($running_version)\n";
+print "OK: Running Kernel ($running_version) matches installed version ($filename)\n";
 exit 0;
 
 ########
@@ -88,6 +88,13 @@ sub fetch_running_version {
 sub fetch_image_version {
 
     my ($filename) = @_;
+
+    $filename ||= '/vmlinuz';
+
+    if (! -r $filename && $heuristic) {
+	$filename = find_kernel_image();
+    }
+
     my $image_version;
 
     open( my $fh, '<', $filename ) or croak "Can't open $filename: $!";
@@ -121,7 +128,32 @@ sub fetch_image_version {
     }
     close $fh;
 
-    croak "Didn't get a version line out of /vmlinuz" unless $image_version;
+    croak "Didn't get a version line out of $filename" unless $image_version;
 
-    return $image_version;
+    return $filename, $image_version;
+}
+
+sub find_kernel_image {
+	
+	for my $directory (qw( / /boot/)) {
+		my @entries = glob "$directory" . 'vmlinuz*';
+
+		my (@symlinks, @files);
+
+		for my $entry (@entries) {
+			push @symlinks, $entry if (-l $entry);
+			push @files, $entry if (-f $entry);
+		}
+
+		# Return the _SHORTEST_ symlink
+		if (@symlinks) {
+			return (sort { length($a) <=> length($b) } @symlinks)[0];
+		}
+
+		# If no suitable symlink exist - return the lexically "highest" filename
+		if (@entries) {
+			return (reverse sort @entries)[0];
+		}
+	}
+	croak "Heuristic couldn't find a kernel image matching /vmlinuz* or /boot/vmlinuz*\n";
 }
