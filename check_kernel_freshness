@@ -42,6 +42,8 @@ GetOptions(
 		'heuristic'		=> \$heuristic,
 ) or pod2usage( -verbose => 0 );
 
+$kernel_image ||= '/vmlinuz';
+
 pod2usage( --verbose => 2 ) if ($help);
 
 my $versionRE = qr/
@@ -55,7 +57,7 @@ my $versionRE = qr/
 /x;
 
 my $running_version = fetch_running_version();
-my $image_version   = fetch_image_version();
+my $image_version   = fetch_image_version($kernel_image);
 
 if ( $running_version ne $image_version ) {
     print
@@ -63,45 +65,13 @@ if ( $running_version ne $image_version ) {
     exit 1;
 }
 
-if ( check_uptime($running_version) ) {
-    print "WARNING: Uptime exceeds kernel build time\n";
-    exit 1;
-}
-
-print "OK: Running Kernel matches installed version ($running_version)\n";
+print "OK: Running Kernel ($running_version) matches installed version ($running_version)\n";
 exit 0;
 
 ########
 # Subs #
 ########
 
-sub check_uptime {
-
-    my ($version) = @_;
-
-    my $date = $version;
-
-    # Strip everything in front of the weekday
-    $date =~ m/.*((:?Mon|Tue|Wed|Thu|Fri|Sat|Sun).*)/;
-    $date = $1;
-
-    my $uptime            = fetch_uptime();
-    my $kernel_build_time = extract_time($date);
-
-    if ( ( time() - $uptime ) <= $kernel_build_time ) {
-        return 1;
-    }
-
-    return;
-}
-
-sub extract_time {
-    my ($date) = @_;
-
-    my $time = str2time($date);
-    croak "Failed to extract time from $date" unless $time;
-    return $time;
-}
 
 sub fetch_uptime {
 
@@ -133,7 +103,7 @@ sub fetch_running_version {
 
 sub fetch_image_version {
 
-    my $filename = '/vmlinuz';
+    my ($filename) = @_;
     my $image_version;
 
     open( my $fh, '<', $filename ) or croak "Can't open $filename: $!";
