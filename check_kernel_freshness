@@ -10,6 +10,7 @@
 
 
 # Todo:
+# *) Clarify license status?
 # *) testen mit:
 # *) sles
 # *) fedora/centos/rhel
@@ -162,12 +163,36 @@ sub find_kernel_image {
 			return (sort { length($a) <=> length($b) } @symlinks)[0];
 		}
 
-		# If no suitable symlink exist - return the lexically "highest" filename
+		# If no suitable symlink exist - return the kernel with the "highest" version
 		if (@entries) {
-			return (reverse sort @entries)[0];
+			return (reverse sort { sort_versionstring() }  @entries)[0];
 		}
 	}
 	croak "Heuristic couldn't find a kernel image matching /vmlinuz* or /boot/vmlinuz*\n";
+}
+
+
+sub sort_versionstring {
+
+	my $filenameRE = qr/vmlinuz.*?(\d+\.\d+\.\d+)/;
+
+	my ($version_a) = $a =~ m/$filenameRE/;
+	my ($version_b) = $b =~ m/$filenameRE/;
+
+	return -1 unless (defined $version_a);
+	return 1 unless (defined $version_b);
+
+        my @elems_a = split /\./, $version_a;
+        my @elems_b = split /\./, $version_b;
+
+        croak "Uneven number of version parts in $a, $b\n" unless (@elems_a == @elems_b);
+
+        for my $elem (0 .. $#elems_a) {
+                my $result = $elems_a[$elem] <=> $elems_b[$elem];
+                return $result if ($result);
+        }
+
+        return 0;
 }
 
 __END__
@@ -213,7 +238,7 @@ If multiple symlinks are found, the symlink with the shortest name is used
 
 =item *) A file whose name starts with vmlinuz.
 
-If multiple files are found, the list is sorted lexically and the highest filename is used
+If multiple files are found, the list is sorted by version strings and the filename with the highest version is used
 
 =back
 
