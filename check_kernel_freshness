@@ -6,14 +6,14 @@
 # See http://search.cpan.org/~cwest/ppt-0.14/
 
 # This module checks if the current running kernel matches the installed one.
-# See documentation at the end of the file or use --help
+# See the documentation at the end of the file or use --help
 
 
 # Todo:
 # *) testen mit:
 # *) sles
 # *) fedora/centos/rhel
-# *) nagios-plugins.org oder formorer
+# *) publishing: nagios-plugins.org oder formorer
 
 
 use strict;
