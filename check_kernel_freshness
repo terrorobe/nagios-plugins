@@ -57,6 +57,9 @@ my $versionRE = qr!
 my ($running_version, $running_buildtime) = fetch_running_version();
 my ($filename, $image_version, $image_buildtime)   = fetch_image_version($kernel_image);
 
+# Include real filename if target is a symlink
+$filename .= ' -> ' . readlink($filename) if (-l $filename);
+
 if ( $running_version ne $image_version ) {
     print
 "WARNING: Mismatch between running ($running_version) and image $filename ($image_version) kernel version\n";
