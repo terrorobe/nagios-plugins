@@ -10,7 +10,7 @@
 
 
 # Todo:
-# *) Clarify license status? -> refactor strings implementation
+# *) Clarify license status?
 # *) testen mit:
 # *) sles
 # *) fedora/centos/rhel
@@ -141,7 +141,7 @@ sub fetch_image_version {
 
         do {
             $string .= $1 if s/^([$printable]+)//o;
-        } until ( $_ or !read( $fh, $_, $chunksize ) );
+        } until ( $_ || !read( $fh, $_, $chunksize ) );
 
         # Longer than
         # #1 SMP Fri Sep 18 11:50:10 UTC 2009
@@ -183,6 +183,7 @@ sub find_kernel_image {
 			return (reverse sort { sort_versionstring() }  @entries)[0];
 		}
 	}
+	return;
 }
 
 
