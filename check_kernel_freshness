@@ -40,22 +40,31 @@ GetOptions(
 pod2usage( -verbose => 1 ) if ($options);
 pod2usage( -verbose => 2 ) if ($help);
 
-my $versionRE = qr/
-	.*	# Match as much as possible
-	(
- 	\#\d+	# Start with the build number
-	.*	# Match anything
-	20\d{2}	# Finish with the year, not year 2100 compliant.
-	)
-	$
-/x;
+my $versionRE = qr!
+	^			# Line Begin Anchor
+	(?:Linux\sversion\s)?	# Optional prefix found in /proc/version
+	(\d+\.\d+\.\d+\S+)	# Kernel Version
+	.*			# Match as much as possible
+	(			# Start buildtime block
+ 	\#\d+			# Start with the build number
+	.*			# Match anything
+	20\d{2}			# Finish with the year, not year 2100 compliant.
+	)			# End buildtime block
+	$			# Line end anchor
+!x;
 
-my $running_version = fetch_running_version();
-my ($filename, $image_version)   = fetch_image_version($kernel_image);
+my ($running_version, $running_buildtime) = fetch_running_version();
+my ($filename, $image_version, $image_buildtime)   = fetch_image_version($kernel_image);
 
 if ( $running_version ne $image_version ) {
     print
-"WARNING: Mismatch between running ($running_version) and image ($image_version) kernel build time\n";
+"WARNING: Mismatch between running ($running_version) and image $filename ($image_version) kernel version\n";
+    exit 1;
+}
+
+if ( $running_buildtime ne $image_buildtime ) {
+    print
+"WARNING: Mismatch between running ($running_buildtime) and image $filename ($image_buildtime) kernel build time\n";
     exit 1;
 }
 
@@ -74,12 +83,12 @@ sub fetch_running_version {
 # eg:
 # Linux version 2.6.30-bpo.2-amd64 (Debian 2.6.30-7~bpo50+1) (nobse@debian.org) (gcc version 4.3.2 (Debian 4.3.2-1.1) ) #1 SMP Fri Sep 18 11:50:10 UTC 2009
 
-    my ($running_version) = $version_line =~ m/$versionRE/;
+    my ($running_version, $running_buildtime) = $version_line =~ m/$versionRE/;
 
     croak "Didn't get a version line out of /proc/version"
       unless $running_version;
 
-    return $running_version;
+    return $running_version, $running_buildtime;
 }
 
 sub fetch_image_version {
@@ -118,6 +127,7 @@ sub fetch_image_version {
 
         if ( length($string) >= 40 && $string =~ m/$versionRE/ ) {
             $image_version = $1;
+	    $image_buildtime = $2;
             last;
         }
 
@@ -127,7 +137,7 @@ sub fetch_image_version {
 
     croak "Didn't get a version line out of $filename" unless $image_version;
 
-    return $filename, $image_version;
+    return $filename, $image_version, $image_buildtime;
 }
 
 sub find_kernel_image {
