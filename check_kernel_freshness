@@ -19,8 +19,6 @@
 use strict;
 use warnings;
 
-use File::Slurp;
-use Date::Parse;
 use Getopt::Long;
 use Pod::Usage;
 use Carp;
@@ -39,6 +37,9 @@ GetOptions(
 
 pod2usage( -verbose => 1 ) if ($options);
 pod2usage( -verbose => 2 ) if ($help);
+
+# eg:
+# Linux version 2.6.30-bpo.2-amd64 (Debian 2.6.30-7~bpo50+1) (nobse@debian.org) (gcc version 4.3.2 (Debian 4.3.2-1.1) ) #1 SMP Fri Sep 18 11:50:10 UTC 2009
 
 my $versionRE = qr!
 	^			# Line Begin Anchor
@@ -78,10 +79,11 @@ exit 0;
 
 sub fetch_running_version {
 
-    my $version_line = read_file('/proc/version');
+    open( my $fh, '<', '/proc/version' ) or croak "Can't open $filename: $!";
 
-# eg:
-# Linux version 2.6.30-bpo.2-amd64 (Debian 2.6.30-7~bpo50+1) (nobse@debian.org) (gcc version 4.3.2 (Debian 4.3.2-1.1) ) #1 SMP Fri Sep 18 11:50:10 UTC 2009
+    my $version_line = <$fh>;
+
+    close($fh) or croak "Can't close $filename: $!";
 
     my ($running_version, $running_buildtime) = $version_line =~ m/$versionRE/;
 
@@ -133,7 +135,7 @@ sub fetch_image_version {
 
         $offset += length($string);
     }
-    close $fh;
+    close $fh or croak "Can't close $filename: $!";
 
     croak "Didn't get a version line out of $filename" unless $image_version;
 
