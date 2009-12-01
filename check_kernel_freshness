@@ -10,7 +10,7 @@
 
 
 # Todo:
-# *) Clarify license status?
+# *) Clarify license status? -> refactor strings implementation
 # *) testen mit:
 # *) sles
 # *) fedora/centos/rhel
@@ -27,17 +27,17 @@ use Carp;
 my $help;
 my $kernel_image;
 my $heuristic;
-my $options;
+my $long_help;
 
 GetOptions(
 		'help|h'		=> \$help,
-		'options'		=> \$options,
+		'long-help'		=> \$long_help,
 		'kernel-image|k:s'	=> \$kernel_image,
 		'heuristic'		=> \$heuristic,
 ) or pod2usage( -verbose => 0 );
 
-pod2usage( -verbose => 1 ) if ($options);
-pod2usage( -verbose => 2 ) if ($help);
+pod2usage( -verbose => 1 ) if ($help);
+pod2usage( -verbose => 2 ) if ($long_help);
 
 # eg:
 # Linux version 2.6.30-bpo.2-amd64 (Debian 2.6.30-7~bpo50+1) (nobse@debian.org) (gcc version 4.3.2 (Debian 4.3.2-1.1) ) #1 SMP Fri Sep 18 11:50:10 UTC 2009
@@ -101,11 +101,26 @@ sub fetch_image_version {
 
     my ($filename) = @_;
 
-    $filename ||= '/vmlinuz';
-
-    if (! -r $filename && $heuristic) {
-	$filename = find_kernel_image();
+    if (! $filename) {
+	    for my $prefix (qw( / /boot/)) {
+		    if (-e $prefix . 'vmlinuz') {
+			    $filename = $prefix . 'vmlinuz';
+			    last;
+		    }
+	    }
     }
+
+    if (! $filename) {
+	    if ($heuristic) {
+		    $filename = find_kernel_image();
+		    croak "Heuristic couldn't find a kernel image matching /vmlinuz* or /boot/vmlinuz*\n" unless $filename;
+	    }
+
+	    else {
+		    croak "Couldn't find a kernelimage at /vmlinuz and /boot/vmlinuz. Please either supply one or use the heuristic mode\n";
+	    }
+    }
+
 
     my $image_version;
 
@@ -168,11 +183,13 @@ sub find_kernel_image {
 			return (reverse sort { sort_versionstring() }  @entries)[0];
 		}
 	}
-	croak "Heuristic couldn't find a kernel image matching /vmlinuz* or /boot/vmlinuz*\n";
 }
 
 
 sub sort_versionstring {
+
+# Sorts given filenames from lowest to highest version number
+# If it fails to parse a given version number it puts the file before the smallest parseable file
 
 	my $filenameRE = qr/vmlinuz.*?(\d+\.\d+\.\d+)/;
 
@@ -208,10 +225,10 @@ check_kernel_freshness [ -k --kernel-image filename ] [ --heuristic ]
 
 
    Options:
-  -k, --kernel-image	Filename of the kernel image to check (default: /vmlinuz)
+  -k, --kernel-image	Filename of the kernel image to check (default: /vmlinuz, /boot/vmlinuz)
       --heuristic	Enable heuristic to search for a kernel image filename
-      --options		Show description for options
-  -h, --help		Show complete documentation
+  -h, --help		Show documentation
+      --long-help	Show long documentation (needs perldoc)
 
 
 =head1 OPTIONS
@@ -222,7 +239,7 @@ check_kernel_freshness [ -k --kernel-image filename ] [ --heuristic ]
 
 Filename of the kernel image to check.
 
-B<Default>: /vmlinuz
+B<Default>: /vmlinuz, /boot/vmlinuz
 
 =item B<--heuristic>
 
