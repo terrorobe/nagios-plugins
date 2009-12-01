@@ -20,7 +20,6 @@
 # *) sles
 # *) fedora/centos/rhel
 # *) nagios-plugins.org oder formorer
-# *) date sanity check dorppen
 
 
 use strict;
@@ -41,8 +40,6 @@ GetOptions(
 		'kernel-image|k:s'	=> \$kernel_image,
 		'heuristic'		=> \$heuristic,
 ) or pod2usage( -verbose => 0 );
-
-$kernel_image ||= '/vmlinuz';
 
 pod2usage( --verbose => 2 ) if ($help);
 
@@ -72,19 +69,6 @@ exit 0;
 # Subs #
 ########
 
-
-sub fetch_uptime {
-
-    my $uptime = read_file('/proc/uptime');
-
-    # Only take the first number (actual uptime)
-    $uptime =~ m/^(\d+)/;
-    $uptime = $1;
-
-    croak "Didn't get uptime from /proc/uptime" unless $uptime;
-
-    return $uptime;
-}
 
 sub fetch_running_version {
 
