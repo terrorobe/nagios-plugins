@@ -62,18 +62,18 @@ $filename .= ' -> ' . readlink($filename) if ( -l $filename );
 
 if ( $running_version ne $image_version ) {
     print
-"WARNING: Mismatch between running ($running_version) and image $filename ($image_version) kernel version\n";
+"WARNING: Version mismatch between running ($running_version) and installed $filename ($image_version) kernel\n";
     exit 1;
 }
 
 if ( $running_buildtime ne $image_buildtime ) {
     print
-"WARNING: Mismatch between running ($running_buildtime) and image $filename ($image_buildtime) kernel build time\n";
+"WARNING: Buildtime mismatch between $image_version kernels. Running: $running_buildtime, installed ($filename): $image_buildtime\n";
     exit 1;
 }
 
 print
-"OK: Running Kernel ($running_version) matches installed version ($filename)\n";
+"OK: Running Kernel ($running_version $running_buildtime) matches installed version ($filename)\n";
 exit 0;
 
 ########
