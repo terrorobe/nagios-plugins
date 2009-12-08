@@ -97,7 +97,6 @@ sub fetch_running_version {
     return $running_version, $running_buildtime;
 }
 
-
 sub fetch_image_version {
 
     my ($filename) = @_;
@@ -107,7 +106,6 @@ sub fetch_image_version {
     my $image_version;
 
     open( my $fh, '<', $filename ) or croak "Can't open $filename: $!";
-
 
 # This is a fast but ugly implementation of strings(1), taken from Perl Power Tools (ppt)
 
@@ -146,30 +144,32 @@ sub fetch_image_version {
 
 sub get_kernel_image_filename {
 
-	my $filename;
+    my $filename;
 
-	# First, see if either /vmlinuz or /boot/vmlinuz exist
+    # First, see if either /vmlinuz or /boot/vmlinuz exist
 
-	for my $prefix (qw( / /boot/)) {
-		if ( -e $prefix . 'vmlinuz' ) {
-			$filename = $prefix . 'vmlinuz';
-			return $filename;
-		}
-	}
+    for my $prefix (qw( / /boot/)) {
+        if ( -e $prefix . 'vmlinuz' ) {
+            $filename = $prefix . 'vmlinuz';
+            return $filename;
+        }
+    }
 
-	# If this wasn't successfull and heuristic mode is enabled, widen our search
-	if ($heuristic) {
-		$filename = find_kernel_image();
-		if ($filename) {
-			return $filename;
-		}
-		else {
-			croak "Heuristic couldn't find a kernel image matching /vmlinuz* or /boot/vmlinuz*\n"
-		}
-	}
+    # If this wasn't successfull and heuristic mode is enabled, widen our search
+    if ($heuristic) {
+        $filename = find_kernel_image();
+        if ($filename) {
+            return $filename;
+        }
+        else {
+            croak
+"Heuristic couldn't find a kernel image matching /vmlinuz* or /boot/vmlinuz*\n";
+        }
+    }
 
-	# If we're here, we've failed.
-	croak "Couldn't find a kernelimage at /vmlinuz and /boot/vmlinuz. Please either supply one or use the heuristic mode\n";
+    # If we're here, we've failed.
+    croak
+"Couldn't find a kernelimage at /vmlinuz and /boot/vmlinuz. Please either supply one or use the heuristic mode\n";
 }
 
 sub find_kernel_image {
@@ -220,7 +220,7 @@ sub sort_versionstring {
     for my $elem ( 0 .. $#elems_a ) {
         my $result = $elems_a[$elem] <=> $elems_b[$elem];
 
-	# We only want to return if one of the version part pairs differ from each other (i.e. "not 0")
+# We only want to return if one of the version part pairs differ from each other (i.e. "not 0")
         return $result if ($result);
     }
 
