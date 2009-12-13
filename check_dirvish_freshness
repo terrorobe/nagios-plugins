@@ -7,7 +7,6 @@
 use strict;
 use warnings;
 
-
 use Carp;
 use Getopt::Long;
 use Pod::Usage;
@@ -24,77 +23,82 @@ my $bank;
 my $warning_ok;
 
 GetOptions(
-		'bank|b=s'	=> \$bank,
-		'help|h'	=> \$help,
-		'long-help|l'	=> \$long_help,
-		'warning|w:i'	=> \$warning,
-		'allow-warning|a+' => \$warning_ok,
-		'critical|c:i'	=> \$critical,
-	  ) or pod2usage( -verbose => 0 );
+    'bank|b=s'         => \$bank,
+    'help|h'           => \$help,
+    'long-help|l'      => \$long_help,
+    'warning|w:i'      => \$warning,
+    'allow-warning|a+' => \$warning_ok,
+    'critical|c:i'     => \$critical,
+) or pod2usage( -verbose => 0 );
 
-pod2usage( -verbose => 2) if ($long_help);
-pod2usage( -verbose => 1) if ($help);
+pod2usage( -verbose => 2 ) if ($long_help);
+pod2usage( -verbose => 1 ) if ($help);
 
-pod2usage( -verbose => 0) unless ($bank);
+pod2usage( -verbose => 0 ) unless ($bank);
 
-$warning ||= 2;
+$warning  ||= 2;
 $critical ||= 4;
 
-croak "Couldn't open bank $bank: $!" unless (-d $bank && -r $bank);
-croak "Warning time is higher than critical time" if ($warning > $critical);
+croak "Couldn't open bank $bank: $!" unless ( -d $bank && -r $bank );
+croak "Warning time is higher than critical time" if ( $warning > $critical );
 
 my @critical_images;
 my @warning_images;
 my $vaultcount;
 
-for my $vault (glob("$bank/*")) {
+for my $vault ( glob("$bank/*") ) {
 
-	$vaultcount++;
-	my @images;
+    $vaultcount++;
+    my @images;
 
-	for my $image (glob("$vault/*")) {
+    for my $image ( glob("$vault/*") ) {
 
-		# Skip dirvish metadata directory
-		next if $image =~ m/\/dirvish$/;
+        # Skip dirvish metadata directory
+        next if $image =~ m/\/dirvish$/;
 
-		# Skip if the given dent is not a directory
-		next unless (-d $image);
+        # Skip if the given dent is not a directory
+        next unless ( -d $image );
 
-		push @images, $image;
+        push @images, $image;
 
-	}
+    }
 
-	@images = reverse sort { by_mtime() } @images;
+    @images = reverse sort { by_mtime() } @images;
 
-	my %image = check_images(@images);
+    my %image = check_images(@images);
 
-	if ($image{'age'} >= $critical) {
-		push @critical_images, $image{'name'} . ' (' . $image{'status'} . '): ' . $image{'age'} . ' days';
-	}
-	elsif ($image{'age'} >= $warning) {
-		push @warning_images, $image{'name'} . ' (' . $image{'status'} . '): ' . $image{'age'} . ' days';
-	}
+    if ( $image{'age'} >= $critical ) {
+        push @critical_images,
+              $image{'name'} . ' ('
+            . $image{'status'} . '): '
+            . $image{'age'} . ' days';
+    }
+    elsif ( $image{'age'} >= $warning ) {
+        push @warning_images,
+              $image{'name'} . ' ('
+            . $image{'status'} . '): '
+            . $image{'age'} . ' days';
+    }
 }
 
 my $output = '';
 my $rc;
 
 if (@critical_images) {
-	$rc = 2;
-	$output .= 'CRITICAL: ' . (join ', ', @critical_images) . '; ';
+    $rc = 2;
+    $output .= 'CRITICAL: ' . ( join ', ', @critical_images ) . '; ';
 }
 
 if (@warning_images) {
-	$rc ||= 1;
-	$output .= 'WARNING: ' . (join ', ', @warning_images) . '; ';
+    $rc ||= 1;
+    $output .= 'WARNING: ' . ( join ', ', @warning_images ) . '; ';
 }
 
-$rc ||= 0;
+$rc     ||= 0;
 $output ||= "All vaults are fresh ($vaultcount checked)";
 
 print "$output\n";
 exit $rc;
-
 
 ########
 # Subs #
@@ -109,58 +113,63 @@ exit $rc;
 
 sub check_images {
 
-	my (@images) = @_;
+    my (@images) = @_;
 
-	my %newest_ok_image;
+    my %newest_ok_image;
 
-	for my $image (@images) {
+    for my $image (@images) {
 
-		my $status;
-		my $completed_at;
+        my $status;
+        my $completed_at;
 
-		my $summary_file = "$image/summary";
+        my $summary_file = "$image/summary";
 
-		croak "Can't open file $summary_file: $!" unless (-e $summary_file && -r $summary_file);
+        croak "Can't open file $summary_file: $!"
+            unless ( -e $summary_file && -r $summary_file );
 
-		for my $line (read_file($summary_file)) {
-			
-			if ($line =~ m/^Status:\s+(.*)/) {
-				$status = $1;
-			}
-			elsif ($line =~ m/Backup-complete:\s+(.*)/) {
-				$completed_at = $1;
-			}
-		}
+        for my $line ( read_file($summary_file) ) {
 
-		croak "Failed to parse $image/summary: Status: $status, Backup-complete: $completed_at" unless (defined $status && defined $completed_at);
+            if ( $line =~ m/^Status:\s+(.*)/ ) {
+                $status = $1;
+            }
+            elsif ( $line =~ m/Backup-complete:\s+(.*)/ ) {
+                $completed_at = $1;
+            }
+        }
 
-		# Skip if the image didn't complete successfully or it completed with a warning
-		# and we dislike warnings
-		next unless ($status eq 'success' || ($status =~ m/^warning/ && $warning_ok));
+        croak
+            "Failed to parse $image/summary: Status: $status, Backup-complete: $completed_at"
+            unless ( defined $status && defined $completed_at );
 
-		my $epoch = parsedate($completed_at);
-		my $dt = DateTime->from_epoch( epoch => $epoch );
+# Skip if the image didn't complete successfully or it completed with a warning
+# and we dislike warnings
+        next
+            unless ( $status eq 'success'
+            || ( $status =~ m/^warning/ && $warning_ok ) );
 
-		my $age = $dt->delta_days( DateTime->now )->in_units('days');
+        my $epoch = parsedate($completed_at);
+        my $dt = DateTime->from_epoch( epoch => $epoch );
 
-		# Initialize with a sane value
-		$newest_ok_image{'age'} = $age + 1 unless exists($newest_ok_image{'age'});
+        my $age = $dt->delta_days( DateTime->now )->in_units('days');
 
-		if ($newest_ok_image{'age'} > $age) {
-			$newest_ok_image{'age'} = $age;
-			$newest_ok_image{'name'} = $image;
-			$newest_ok_image{'status'} = $status;
-		}
+        # Initialize with a sane value
+        $newest_ok_image{'age'} = $age + 1
+            unless exists( $newest_ok_image{'age'} );
 
-		last if ($age < $warning);
-	}
+        if ( $newest_ok_image{'age'} > $age ) {
+            $newest_ok_image{'age'}    = $age;
+            $newest_ok_image{'name'}   = $image;
+            $newest_ok_image{'status'} = $status;
+        }
 
-	return %newest_ok_image;
+        last if ( $age < $warning );
+    }
+
+    return %newest_ok_image;
 }
 
-
 sub by_mtime {
-	return (stat("$a"))[9] <=> (stat("$b"))[9];
+    return ( stat("$a") )[9] <=> ( stat("$b") )[9];
 }
 
 __END__
