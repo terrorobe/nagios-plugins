@@ -1,0 +1,229 @@
+#!/usr/bin/perl
+
+# Author: Michael Renner <michael.renner@amd.co.at>
+
+# License: BSD, 2-clause
+
+use strict;
+use warnings;
+
+
+use Carp;
+use Getopt::Long;
+use Pod::Usage;
+
+use File::Slurp;
+use Time::ParseDate;
+use DateTime;
+
+my $help;
+my $long_help;
+my $warning;
+my $critical;
+my $bank;
+my $warning_ok;
+
+GetOptions(
+		'bank|b=s'	=> \$bank,
+		'help|h'	=> \$help,
+		'long-help|l'	=> \$long_help,
+		'warning|w:i'	=> \$warning,
+		'allow-warning|a+' => \$warning_ok,
+		'critical|c:i'	=> \$critical,
+	  ) or pod2usage( -verbose => 0 );
+
+pod2usage( -verbose => 2) if ($long_help);
+pod2usage( -verbose => 1) if ($help);
+
+pod2usage( -verbose => 0) unless ($bank);
+
+$warning ||= 2;
+$critical ||= 4;
+
+croak "Couldn't open bank $bank: $!" unless (-d $bank && -r $bank);
+croak "Warning time is higher than critical time" if ($warning > $critical);
+
+my @critical_images;
+my @warning_images;
+my $vaultcount;
+
+for my $vault (glob("$bank/*")) {
+
+	$vaultcount++;
+	my @images;
+
+	for my $image (glob("$vault/*")) {
+
+		# Skip dirvish metadata directory
+		next if $image =~ m/\/dirvish$/;
+
+		# Skip if the given dent is not a directory
+		next unless (-d $image);
+
+		push @images, $image;
+
+	}
+
+	@images = reverse sort { by_mtime() } @images;
+
+	my %image = check_images(@images);
+
+	if ($image{'age'} >= $critical) {
+		push @critical_images, $image{'name'} . ' (' . $image{'status'} . '): ' . $image{'age'} . ' days';
+	}
+	elsif ($image{'age'} >= $warning) {
+		push @warning_images, $image{'name'} . ' (' . $image{'status'} . '): ' . $image{'age'} . ' days';
+	}
+}
+
+my $output = '';
+my $rc;
+
+if (@critical_images) {
+	$rc = 2;
+	$output .= 'CRITICAL: ' . (join ', ', @critical_images) . '; ';
+}
+
+if (@warning_images) {
+	$rc ||= 1;
+	$output .= 'WARNING: ' . (join ', ', @warning_images) . '; ';
+}
+
+$rc ||= 0;
+$output ||= "All vaults are fresh ($vaultcount checked)";
+
+print "$output\n";
+exit $rc;
+
+
+########
+# Subs #
+########
+
+# check_images
+#
+# Traverses a list of images and searches for one that completed successfully
+#
+# Returns either with one that completed under the warning limit or the newest one when
+# there aren't any that satisfied the condition
+
+sub check_images {
+
+	my (@images) = @_;
+
+	my %newest_ok_image;
+
+	for my $image (@images) {
+
+		my $status;
+		my $completed_at;
+
+		my $summary_file = "$image/summary";
+
+		croak "Can't open file $summary_file: $!" unless (-e $summary_file && -r $summary_file);
+
+		for my $line (read_file($summary_file)) {
+			
+			if ($line =~ m/^Status:\s+(.*)/) {
+				$status = $1;
+			}
+			elsif ($line =~ m/Backup-complete:\s+(.*)/) {
+				$completed_at = $1;
+			}
+		}
+
+		croak "Failed to parse $image/summary: Status: $status, Backup-complete: $completed_at" unless (defined $status && defined $completed_at);
+
+		# Skip if the image didn't complete successfully or it completed with a warning
+		# and we dislike warnings
+		next unless ($status eq 'success' || ($status =~ m/^warning/ && $warning_ok));
+
+		my $epoch = parsedate($completed_at);
+		my $dt = DateTime->from_epoch( epoch => $epoch );
+
+		my $age = $dt->delta_days( DateTime->now )->in_units('days');
+
+		# Initialize with a sane value
+		$newest_ok_image{'age'} = $age + 1 unless exists($newest_ok_image{'age'});
+
+		if ($newest_ok_image{'age'} > $age) {
+			$newest_ok_image{'age'} = $age;
+			$newest_ok_image{'name'} = $image;
+			$newest_ok_image{'status'} = $status;
+		}
+
+		last if ($age < $warning);
+	}
+
+	return %newest_ok_image;
+}
+
+
+sub by_mtime {
+	return (stat("$a"))[9] <=> (stat("$b"))[9];
+}
+
+__END__
+
+=head1 NAME
+
+check_dirvish_freshness - A Nagios plugin to check if a given dirvish bank contains vaults with outdated images
+
+
+=head1 SYNOPSIS
+
+check_dirvish_freshness [ -w --warning days ] [ -c --critical days ] [ -a --allow-warning ] --bank -b path
+
+
+    Options:
+   -b, --bank		Path to dirvish bank
+   -w, --warning	Maximum age in days before a warning is issued. Default: 2
+   -c, --critical	Maximum age in days before a critical error is issued. Default: 4
+   -a, --allow-warning	Treat "warning" status as "success". Default: no
+   -h, --help		Show documentation
+   -l, --long-help	Show extended documentation (needs working 'man')
+
+=head1 OPTIONS
+
+=over 8
+
+=item B<--bank>
+
+Path to the dirvish bank to monitor. See dirvish's master.conf for details.
+
+B<Default>: none
+
+=item B<--warning>
+
+Age in days from when on a warning is issued. The age is calculated in absolute days, so an image
+created at 2009-01-01T23:59 will be already one day old at 2009-01-02T00:01.
+
+B<Default>: 2
+
+
+=item B<--critical>
+
+See B<--warning>
+
+B<Default>: 4
+
+
+=item B<--allow-warning>
+
+Treat a dirvish image completion status of "warning" the same as "success". 
+Warnings are issued when non-fatal errors occured during the image creation, e.g. files vanished on the sender side
+
+B<Default>: no
+
+=back
+
+=head1 DESCRIPTION
+
+B<check_dirvish_freshness> is a Nagios plugin which checks if all vaults in a given bank contain at least one image below the specified
+warning and critical thresholds and reports them otherwise.
+
+=head2 Modus operandi
+
+The plugin traverses all images and checks the "summary" files for the needed information.
+
+=cut
