@@ -119,8 +119,9 @@ sub check_images {
 
     for my $image (@images) {
 
-        my $status;
-        my $completed_at;
+# Safe initialization variables
+        my $status = '';
+        my $completed_at = '1970-01-01 00:00:00';
 
         my $summary_file = "$image/summary";
 
@@ -137,9 +138,6 @@ sub check_images {
             }
         }
 
-        croak
-            "Failed to parse $image/summary: Status: $status, Backup-complete: $completed_at"
-            unless ( defined $status && defined $completed_at );
 
 # Skip if the image didn't complete successfully or it completed with a warning
 # and we dislike warnings
