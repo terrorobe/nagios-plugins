@@ -69,15 +69,15 @@ for my $vault ( glob("$bank/*") ) {
 
     if ( $image{'age'} >= $critical ) {
         push @critical_images,
-              $image{'name'} . ' ('
-            . $image{'status'} . '): '
-            . $image{'age'} . ' days';
+              $image{'name'} . ': '
+            . $image{'age'} . ' days old ('
+            . $image{'status'} . ')';
     }
     elsif ( $image{'age'} >= $warning ) {
         push @warning_images,
-              $image{'name'} . ' ('
-            . $image{'status'} . '): '
-            . $image{'age'} . ' days';
+              $image{'name'} . ': '
+            . $image{'age'} . ' days old ('
+            . $image{'status'} . ')';
     }
 }
 
@@ -154,9 +154,12 @@ sub check_images {
         $newest_ok_image{'age'} = $age + 1
             unless exists( $newest_ok_image{'age'} );
 
+        # Extract vault name from image path
+        my ($name) = $image =~ m!$bank/?([^/]+)!;
+
         if ( $newest_ok_image{'age'} > $age ) {
             $newest_ok_image{'age'}    = $age;
-            $newest_ok_image{'name'}   = $image;
+            $newest_ok_image{'name'}   = $name;
             $newest_ok_image{'status'} = $status;
         }
 
