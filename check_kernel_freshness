@@ -107,12 +107,12 @@ sub fetch_image_version {
     while ( $buf or read( $fh, $buf, $chunksize ) ) {
         $string = '';
 
-	# Strip unprintable characters from beginning of buf
-	$buf =~ s/^([^[:print:]])//;
+        # Strip unprintable characters from beginning of buf
+        $buf =~ s/^([^[:print:]])//;
 
-	# Copy printable characters from beginning of buf to string
-	# Tries to read again if buf is empty, since the string could continue in the next chunk
-	# Stops when buf still contains stuff (which is non-ascii) or read doesn't return anything
+# Copy printable characters from beginning of buf to string
+# Tries to read again if buf is empty, since the string could continue in the next chunk
+# Stops when buf still contains stuff (which is non-printable) or read doesn't return anything
         do {
             $string .= $1 if $buf =~ s/^([[:print:]]+)//;
         } until ( $buf || !read( $fh, $buf, $chunksize ) );
