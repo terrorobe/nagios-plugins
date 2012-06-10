@@ -16,14 +16,14 @@ use Carp;
 
 my $help;
 my $kernel_image;
-my $heuristic;
+my $no_heuristic;
 my $long_help;
 
 GetOptions(
     'help|h'           => \$help,
     'long-help'        => \$long_help,
     'kernel-image|k:s' => \$kernel_image,
-    'heuristic'        => \$heuristic,
+    'no-heuristic'        => \$no_heuristic,
 ) or pod2usage( -verbose => 0 );
 
 pod2usage( -verbose => 1 ) if ($help);
@@ -147,7 +147,7 @@ sub get_kernel_image_filename {
     }
 
     # If this wasn't successfull and heuristic mode is enabled, widen our search
-    if ($heuristic) {
+    unless ($no_heuristic) {
         $filename = find_kernel_image();
         if ($filename) {
             return $filename;
@@ -227,12 +227,12 @@ check_kernel_freshness - A Nagios plugin to check if a given Linux system is run
 
 =head1 SYNOPSIS
 
-check_kernel_freshness [ -k --kernel-image filename ] [ --heuristic ]
+check_kernel_freshness [ -k --kernel-image filename ] [ --no-heuristic ]
 
 
    Options:
   -k, --kernel-image	Filename of the kernel image to check (default: /vmlinuz, /boot/vmlinuz)
-      --heuristic	Enable heuristic to search for a kernel image filename
+      --no-heuristic	Disable heuristic to search for a kernel image filename
   -h, --help		Show documentation
       --long-help	Show long documentation (needs perldoc)
 
@@ -247,9 +247,9 @@ Filename of the kernel image to check.
 
 B<Default>: /vmlinuz, /boot/vmlinuz
 
-=item B<--heuristic>
+=item B<--no-heuristic>
 
-Enables heuristic to search for a kernel image filename.
+Disables heuristic to search for a kernel image filename.
 
 When enabled, the plugin will search first / and then /boot for
 
