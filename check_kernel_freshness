@@ -2,18 +2,10 @@
 
 # Author: Michael Renner <michael.renner@amd.co.at>
 
-# License: Unclear due to ppt's unclear licensing status
-# See http://search.cpan.org/~cwest/ppt-0.14/
+# License: MIT
 
-# This module checks if the current running kernel matches the installed one.
+# This module checks if the current running Linux kernel matches the installed one.
 # See the documentation at the end of the file or use --help
-
-# Todo:
-# *) Clarify license status?
-# *) testen mit:
-# *) sles
-# *) fedora/centos/rhel
-# *) publishing: nagios-plugins.org oder formorer
 
 use strict;
 use warnings;
@@ -104,27 +96,28 @@ sub fetch_image_version {
     $filename = get_kernel_image_filename() unless ($filename);
 
     my $image_version;
+    my $image_buildtime;
 
     open( my $fh, '<', $filename ) or croak "Can't open $filename: $!";
 
-# This is a fast but ugly implementation of strings(1), taken from Perl Power Tools (ppt)
-
-    my $offset    = 0;
     my $chunksize = 4096;
-
-    my $punctuation = join '\\', split //, q/`~!@#$%^&*()-+={}|[]\:";'<>?,.\//;
-    my $printable = '\w \t' . $punctuation;
     my $string;
+    my $buf;
 
-    while ( $_ or read( $fh, $_, $chunksize ) ) {
-        $offset += length($1) if s/^([^$printable]+)//o;
+    while ( $buf or read( $fh, $buf, $chunksize ) ) {
         $string = '';
 
-        do {
-            $string .= $1 if s/^([$printable]+)//o;
-        } until ( $_ || !read( $fh, $_, $chunksize ) );
+	# Strip unprintable characters from beginning of buf
+	$buf =~ s/^([^[:print:]])//;
 
-        # Longer than
+	# Copy printable characters from beginning of buf to string
+	# Tries to read again if buf is empty, since the string could continue in the next chunk
+	# Stops when buf still contains stuff (which is non-ascii) or read doesn't return anything
+        do {
+            $string .= $1 if $buf =~ s/^([[:print:]]+)//;
+        } until ( $buf || !read( $fh, $buf, $chunksize ) );
+
+        # Longer than at least
         # #1 SMP Fri Sep 18 11:50:10 UTC 2009
 
         if ( length($string) >= 40 && $string =~ m/$versionRE/ ) {
@@ -132,8 +125,6 @@ sub fetch_image_version {
             $image_buildtime = $2;
             last;
         }
-
-        $offset += length($string);
     }
     close $fh or croak "Can't close $filename: $!";
 
