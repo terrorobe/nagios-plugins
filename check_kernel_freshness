@@ -23,7 +23,7 @@ GetOptions(
     'help|h'           => \$help,
     'long-help'        => \$long_help,
     'kernel-image|k:s' => \$kernel_image,
-    'no-heuristic'        => \$no_heuristic,
+    'no-heuristic'     => \$no_heuristic,
 ) or pod2usage( -verbose => 0 );
 
 pod2usage( -verbose => 1 ) if ($help);
@@ -37,16 +37,20 @@ my $versionRE = qr!
 	(?:Linux\sversion\s)?	# Optional prefix found in /proc/version
 	(\d+\.\d+\.\d+\S+)	# Kernel Version
 	.*			# Match as much as possible
-	(			# Start buildtime block
+	(			# Start build block
  	\#\d+			# Start with the build number
 	.*			# Match anything
-	20\d{2}			# Finish with the year, not year 2100 compliant.
-	)			# End buildtime block
+        (
+        20\d{2}                 # Finish with the year, not year 2100 compliant.
+        |                       # OR
+        (\d+\.\d+\.\d+\S+)      # Kernel Version
+        )
+	)			# End build block
 	$			# Line end anchor
 !x;
 
-my ( $running_version, $running_buildtime ) = fetch_running_version();
-my ( $filename, $image_version, $image_buildtime ) =
+my ( $running_version, $running_build ) = fetch_running_version();
+my ( $filename, $image_version, $image_build ) =
   fetch_image_version($kernel_image);
 
 # Include real filename if target is a symlink
@@ -58,14 +62,14 @@ if ( $running_version ne $image_version ) {
     exit 1;
 }
 
-if ( $running_buildtime ne $image_buildtime ) {
+if ( $running_build ne $image_build ) {
     print
-"WARNING: Buildtime mismatch between $image_version kernels. Running: $running_buildtime, installed ($filename): $image_buildtime\n";
+"WARNING: Build mismatch between $image_version kernels. Running: $running_build, installed ($filename): $image_build\n";
     exit 1;
 }
 
 print
-"OK: Running Kernel ($running_version $running_buildtime) matches installed version ($filename)\n";
+"OK: Running Kernel ($running_version $running_build) matches installed version ($filename)\n";
 exit 0;
 
 ########
@@ -80,13 +84,12 @@ sub fetch_running_version {
 
     close($fh) or croak "Can't close $filename: $!";
 
-    my ( $running_version, $running_buildtime ) =
-      $version_line =~ m/$versionRE/;
+    my ( $running_version, $running_build ) = $version_line =~ m/$versionRE/;
 
     croak "Didn't get a version line out of /proc/version"
       unless $running_version;
 
-    return $running_version, $running_buildtime;
+    return $running_version, $running_build;
 }
 
 sub fetch_image_version {
@@ -96,7 +99,7 @@ sub fetch_image_version {
     $filename = get_kernel_image_filename() unless ($filename);
 
     my $image_version;
-    my $image_buildtime;
+    my $image_build;
 
     open( my $fh, '<', $filename ) or croak "Can't open $filename: $!";
 
@@ -121,8 +124,8 @@ sub fetch_image_version {
         # #1 SMP Fri Sep 18 11:50:10 UTC 2009
 
         if ( length($string) >= 40 && $string =~ m/$versionRE/ ) {
-            $image_version   = $1;
-            $image_buildtime = $2;
+            $image_version = $1;
+            $image_build   = $2;
             last;
         }
     }
@@ -130,7 +133,7 @@ sub fetch_image_version {
 
     croak "Didn't get a version line out of $filename" unless $image_version;
 
-    return $filename, $image_version, $image_buildtime;
+    return $filename, $image_version, $image_build;
 }
 
 sub get_kernel_image_filename {
