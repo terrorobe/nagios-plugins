@@ -73,29 +73,29 @@ $filename .= ' -> ' . readlink($filename) if ( -l $filename );
 if ($grub_kernelversion) {
     if ( $grub_kernelversion ne $running_version ) {
         print
-"WARNING: Version mismatch between running ($running_version) and GRUB default ($grub_kernelversion)\n";
+"1 check_kernel_freshness - WARNING: Version mismatch between running ($running_version) and GRUB default ($grub_kernelversion)\n";
         exit 1;
     }
 
     print
-"OK: Running Kernel ($running_version $running_build) matches GRUB default ($grub_kernelversion)\n";
+"0 check_kernel_freshness - OK: Running Kernel ($running_version $running_build) matches GRUB default ($grub_kernelversion)\n";
     exit 0;
 }
 
 if ( $running_version ne $image_version ) {
     print
-"WARNING: Version mismatch between running ($running_version) and installed $filename ($image_version) kernel\n";
+"1 check_kernel_freshness - WARNING: Version mismatch between running ($running_version) and installed $filename ($image_version) kernel\n";
     exit 1;
 }
 
 if ( $running_build ne $image_build ) {
     print
-"WARNING: Build mismatch between $image_version kernels. Running: $running_build, installed ($filename): $image_build\n";
+"1 check_kernel_freshness - WARNING: Build mismatch between $image_version kernels. Running: $running_build, installed ($filename): $image_build\n";
     exit 1;
 }
 
 print
-"OK: Running Kernel ($running_version $running_build) matches installed version ($filename)\n";
+"0 check_kernel_freshness - OK: Running Kernel ($running_version $running_build) matches installed version ($filename)\n";
 exit 0;
 
 ########
