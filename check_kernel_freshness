@@ -85,13 +85,15 @@ $                                   # Line end anchor
 my ( $running_version, $running_build ) = fetch_running_version();
 
 my $filename;
+my $kernel_image_source;
 
 unless ($kernel_image) {
     logger("No kernel image filename specified");
-    $filename = get_default_kernel_image_filename();
+    ($filename, $kernel_image_source) = get_default_kernel_image_filename();
 } else {
     logger("Kernel image supplied on command line: $kernel_image");
-    $filename = $kernel_image
+    $filename = $kernel_image;
+    $kernel_image_source = 'optarg';
 }
 
 my ( $image_version, $image_build ) = fetch_image_version($filename);
@@ -99,20 +101,20 @@ my ( $image_version, $image_build ) = fetch_image_version($filename);
 # Include real filename if target is a symlink
 $filename .= ' -> ' . readlink($filename) if ( -l $filename );
 
-# FIXME: Add source of installed image
 
 if ( $running_version ne $image_version ) {
-    print "WARNING: Version mismatch between running ($running_version) and installed $filename ($image_version) kernel\n";
+    print "WARNING: Version mismatch between running ($running_version) and installed kernel ($image_version) at $filename (Source: $kernel_image_source)\n";
     exit 1;
 }
 
 if ( $running_build ne $image_build ) {
-    print "WARNING: Build mismatch between $image_version kernels. Running: $running_build, installed ($filename): $image_build\n";
+    print "WARNING: Build mismatch between $image_version kernels. Running ($running_build) and installed kernel ($image_build) at $filename (Source: $kernel_image_source)\n";
     exit 1;
 }
 
-print "OK: Running Kernel ($running_version $running_build) matches installed version ($filename)\n";
+print "OK: Running Kernel ($running_version $running_build) matches installed $filename (Source: $kernel_image_source)\n";
 exit 0;
+
 
 ########
 # Subs #
@@ -201,7 +203,7 @@ sub get_default_kernel_image_filename {
         
         if ($filename) {
             logger("\tFound kernel in grub config: $filename");
-            return $filename;
+            return ($filename, 'GRUB');
         }
     }
 
@@ -212,7 +214,7 @@ sub get_default_kernel_image_filename {
             if ( -e $prefix . 'vmlinuz' ) {
                 $filename = $prefix . 'vmlinuz';
                 logger("\tFound kernel image at $filename");
-                return $filename;
+                return ($filename, 'vmlinuz');
             }
         }
     }
@@ -223,7 +225,7 @@ sub get_default_kernel_image_filename {
         $filename = find_heuristic_kernel_image();
         if ($filename) {
             logger("\tFound kernel image at $filename");
-            return $filename;
+            return ($filename, 'heuristic');
         }
         else {
             croak "Heuristic couldn't find a kernel image matching /vmlinuz* or /boot/vmlinuz*\n";
@@ -231,7 +233,7 @@ sub get_default_kernel_image_filename {
     }
 
     # If we're here, we've failed.
-    croak "Couldn't find a kernelimage at /vmlinuz and /boot/vmlinuz. Please either supply one or use the heuristic mode\n";
+    croak "Couldn't find a kernelimage. Please either supply one or use the other lookup modes\n";
 }
 
 
