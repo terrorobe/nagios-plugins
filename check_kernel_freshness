@@ -55,7 +55,7 @@ if ($print_version) {
 # Linux version 2.6.32-042stab083.2 (root@rh6-build-x64) (gcc version 4.4.6 20120305 (Red Hat 4.4.6-4) (GCC) ) #1 SMP Fri Nov 8 18:08:40 MSK 2013
 # Linux version 3.2.0-4-amd64 (debian-kernel@lists.debian.org) (gcc version 4.6.3 (Debian 4.6.3-14) ) #1 SMP Debian 3.2.57-3+deb7u2
 # Linux version 3.11-0.bpo.2-amd64 (debian-kernel@lists.debian.org) (gcc version 4.6.3 (Debian 4.6.3-14) ) #1 SMP Debian 3.11.8-1~bpo70+1 (2013-11-21)
- 
+
 # strings in kernel image:
 #
 # 2.6.32-042stab090.5 (root@kbuild-rh6-x64) #1 SMP Sat Jun 21 00:15:09 MSK 2014
@@ -185,7 +185,7 @@ sub fetch_image_version {
 
     croak "Didn't get a version line out of $filename" unless $image_version;
 
-    logger("\tversion: $image_version, build: $image_build"); 
+    logger("\tversion: $image_version, build: $image_build");
 
     return $image_version, $image_build;
 }
@@ -200,7 +200,7 @@ sub get_default_kernel_image_filename {
     unless ($no_grub) {
         logger("\tSearching in grub config");
         $filename = fetch_grub_default_kernel_image();
-        
+
         if ($filename) {
             logger("\tFound kernel in grub config: $filename");
             return ($filename, 'GRUB');
@@ -246,7 +246,7 @@ sub get_default_kernel_image_filename {
 # or undef on failure
 
 sub find_heuristic_kernel_image {
-    logger("Lookig for kernel image heuristically"); 
+    logger("Lookig for kernel image heuristically");
 
     my $filename;
 
@@ -338,11 +338,11 @@ sub fetch_grub_default_kernel_image {
 
     my $grub_filename = $grub_entries[$grub_default];
     logger("\tGRUB default kernel image: $grub_filename");
-    my ($grub_basename) = fileparse($grub_filename); 
+    my ($grub_basename) = fileparse($grub_filename);
 
     # Since we don't know in which partition/mount-point the image resides,
     # try the most likely candidates
-    
+
     my @kernel_image_location_candidates = (
         $grub_filename,
         "/boot/$grub_basename",
