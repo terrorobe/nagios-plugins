@@ -40,28 +40,41 @@ if ($print_version) {
 	exit 0;
 }
 
-# eg:
+# Linux kernel version strings are fickle beasts. It's format is defined in part by
+# https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/scripts/mkcompile_h
+# plus whatever the distributions deem a good idea.
+
+# /proc/version:
+#
 # Linux version 2.6.30-bpo.2-amd64 (Debian 2.6.30-7~bpo50+1) (nobse@debian.org) (gcc version 4.3.2 (Debian 4.3.2-1.1) ) #1 SMP Fri Sep 18 11:50:10 UTC 2009
 # Linux version 2.6.32-042stab083.2 (root@rh6-build-x64) (gcc version 4.4.6 20120305 (Red Hat 4.4.6-4) (GCC) ) #1 SMP Fri Nov 8 18:08:40 MSK 2013
-# Linux version 3.11-0.bpo.2-amd64 (debian-kernel@lists.debian.org) (gcc version 4.6.3 (Debian 4.6.3-14) ) #1 SMP Debian 3.11.8-1~bpo70+1 (2013-11-21)
 # Linux version 3.2.0-4-amd64 (debian-kernel@lists.debian.org) (gcc version 4.6.3 (Debian 4.6.3-14) ) #1 SMP Debian 3.2.57-3+deb7u2
+# Linux version 3.11-0.bpo.2-amd64 (debian-kernel@lists.debian.org) (gcc version 4.6.3 (Debian 4.6.3-14) ) #1 SMP Debian 3.11.8-1~bpo70+1 (2013-11-21)
+ 
+# strings in kernel image:
+#
+# 2.6.32-042stab090.5 (root@kbuild-rh6-x64) #1 SMP Sat Jun 21 00:15:09 MSK 2014
+# 2.6.32-5-openvz-amd64 (unknown@Debian) #1 SMP Tue May 13 17:16:50 UTC 2014
+# 3.2.0-4-amd64 (debian-kernel@lists.debian.org) #1 SMP Debian 3.2.60-1+deb7u1
+# 3.14-0.bpo.1-amd64 (debian-kernel@lists.debian.org) #1 SMP Debian 3.14.7-1~bpo70+1 (2014-06-21)
+
 
 my $versionRE = qr!
-    ^                       # Line Begin Anchor
-    (?:Linux\sversion\s)?   # Optional prefix found in /proc/version
-    (\d+\.\d+\S+)           # Kernel Version
-    .*                      # Match as much as possible
-    (                       # Start build block
-    \#\d+                   # Start with the build number
-    .*                      # Match anything
-    (?:
-    20\d{2}                 # Finish with the year, not year 2100 compliant.
-    |                       # OR
-    (?:\d+\.\d+\.\d+\S+\s*) # Kernel Version
-    )
-    (?:\(\d+-\d+-\d+\))?    # Optional Build Date
-    )                       # End build block
-    $                       # Line end anchor
+^                                   # Line Begin Anchor
+    (?:Linux\sversion\s)?           # Optional prefix found in /proc/version
+    (\d+\.\d+\S+)                   # Kernel Version
+    .*                              # Match as much as possible
+    (                               # Begin UTS version Field
+        \#\d+                       # Start with the build number
+        .*                          # Match anything
+        (?:
+            20\d{2}                 # Finish with the year
+            |                       # OR
+            (?:\d+\.\d+\.\d+\S+\s*) # UTS version field Kernel Version
+            (?:\(\d+-\d+-\d+\))?    # Optional Build Date
+        )
+    )                               # End UTS version field
+$                                   # Line end anchor
 !x;
 
 my ( $running_version, $running_build ) = fetch_running_version();
