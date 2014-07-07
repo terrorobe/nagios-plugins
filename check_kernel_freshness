@@ -22,6 +22,7 @@ my $kernel_image;
 my $no_heuristic;
 my $no_grub;
 my $no_vmlinuz;
+my $check_mk;
 my $long_help;
 my $print_version;
 my $verbose;
@@ -33,6 +34,7 @@ GetOptions(
     'no-heuristic'     => \$no_heuristic,
     'no-grub'          => \$no_grub,
     'no-vmlinuz'       => \$no_vmlinuz,
+    'check-mk'         => \$check_mk,
     'version|v'        => \$print_version,
     'verbose'          => \$verbose,
 ) or pod2usage( -verbose => 0 );
@@ -103,16 +105,16 @@ $filename .= ' -> ' . readlink($filename) if ( -l $filename );
 
 
 if ( $running_version ne $image_version ) {
-    print "WARNING: Version mismatch between running ($running_version) and installed kernel ($image_version) at $filename (Source: $kernel_image_source)\n";
+    print status_prefix(1) . "Version mismatch between running ($running_version) and installed kernel ($image_version) at $filename (Source: $kernel_image_source)\n";
     exit 1;
 }
 
 if ( $running_build ne $image_build ) {
-    print "WARNING: Build mismatch between $image_version kernels. Running ($running_build) and installed kernel ($image_build) at $filename (Source: $kernel_image_source)\n";
+    print status_prefix(1) . "Build mismatch between $image_version kernels. Running ($running_build) and installed kernel ($image_build) at $filename (Source: $kernel_image_source)\n";
     exit 1;
 }
 
-print "OK: Running Kernel ($running_version $running_build) matches installed $filename (Source: $kernel_image_source)\n";
+print status_prefix(0) . "Running Kernel ($running_version $running_build) matches installed $filename (Source: $kernel_image_source)\n";
 exit 0;
 
 
@@ -389,6 +391,39 @@ sub sort_versionstring {
     return 0;
 }
 
+
+sub status_prefix {
+    my ($rc) = @_;
+
+    my $mode;
+
+    if ($check_mk or $ENV{'MK_LIBDIR'}) {
+        $mode = 'check_mk';
+    } else {
+        $mode = 'nagios-compatible';
+    }
+
+    my %prefix = (
+        'check_mk' => [
+            '0 check_kernel_freshness - OK: ',
+            '1 check_kernel_freshness - ',
+        ],
+        'nagios-compatible' => [
+            'OK: ',
+            'WARNING: ',
+        ],
+    );
+
+    my $msg = $prefix{$mode}->[$rc];
+
+    unless ($msg) {
+        croak "Couldn't look up message prefix";
+    }
+
+    return $msg;
+}
+
+
 sub logger {
     return unless $verbose;
     my ($msg) = @_;
@@ -413,6 +448,7 @@ check_kernel_freshness [ -k --kernel-image filename ] [ --no-heuristic ] [ --no-
       --no-grub         Don't check GRUB config for default kernel image
       --no-vmlinuz      Don't check for /vmlinuz and /boot/vmlinuz
       --no-heuristic    Disable heuristic to search for the "best" kernel image
+      --check-mk        Enable check_mk compatible status output
   -h, --help            Show documentation
       --long-help       Show long documentation (needs perldoc)
   -v, --version         Print version and exit
@@ -464,6 +500,11 @@ If multiple files are found, the list is sorted by version strings and the filen
 =back
 
 The first matching occurance is then used.
+
+=item B<--check-mk>
+
+Use B<check_mk> friendly status output. This mode is automatically activated when the B<MK_LIBDIR> environment
+variable exists.
 
 
 =back
