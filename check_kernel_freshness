@@ -31,6 +31,7 @@ GetOptions(
     'kernel-image|k:s' => \$kernel_image,
     'no-heuristic'     => \$no_heuristic,
     'no-grub'          => \$no_grub,
+    'no-vmlinuz'       => \$no_vmlinuz,
     'version|v'        => \$print_version,
     'verbose'          => \$verbose,
 ) or pod2usage( -verbose => 0 );
@@ -204,13 +205,14 @@ sub get_default_kernel_image_filename {
     }
 
     # See if either /vmlinuz or /boot/vmlinuz exist
-
-    logger("\tLooking at default locations: /vmlinuz /boot/vmlinuz");
-    for my $prefix (qw( / /boot/)) {
-        if ( -e $prefix . 'vmlinuz' ) {
-            $filename = $prefix . 'vmlinuz';
-            logger("\tFound kernel image at $filename");
-            return $filename;
+    unless ($no_vmlinuz) {
+        logger("\tLooking at default locations: /vmlinuz /boot/vmlinuz");
+        for my $prefix (qw( / /boot/)) {
+            if ( -e $prefix . 'vmlinuz' ) {
+                $filename = $prefix . 'vmlinuz';
+                logger("\tFound kernel image at $filename");
+                return $filename;
+            }
         }
     }
 
@@ -247,6 +249,7 @@ sub find_heuristic_kernel_image {
 
     # We're looking for files and symlinks named vmlinuz at / and /boot
     for my $directory (qw( / /boot/)) {
+        logger("\tLooking at ${directory}vmlinuz*");
         my @entries = glob "$directory" . 'vmlinuz*';
 
         my ( @symlinks, @files );
@@ -398,16 +401,18 @@ check_kernel_freshness - A monitoring plugin to check if a given Linux system is
 
 =head1 SYNOPSIS
 
-check_kernel_freshness [ -k --kernel-image filename ] [ --no-heuristic ] [ --no-grub ]
+check_kernel_freshness [ -k --kernel-image filename ] [ --no-heuristic ] [ --no-grub ] [ --no-vmlinuz ]
 
 
    Options:
-  -k, --kernel-image    Filename of the kernel image to check (default: /vmlinuz, /boot/vmlinuz)
-      --no-heuristic    Disable heuristic to search for a kernel image filename
-      --no-grub         Disable GRUB config file parsing
+  -k, --kernel-image    Filename of the kernel image to check, optional. (default lookup order: grub, vmlinuz, heuristic)
+      --no-grub         Don't check GRUB config for default kernel image
+      --no-vmlinuz      Don't check for /vmlinuz and /boot/vmlinuz
+      --no-heuristic    Disable heuristic to search for the "best" kernel image
   -h, --help            Show documentation
       --long-help       Show long documentation (needs perldoc)
   -v, --version         Print version and exit
+      --verbose         Show verbose execution
 
 
 =head1 OPTIONS
