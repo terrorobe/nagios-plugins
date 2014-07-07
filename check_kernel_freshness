@@ -23,6 +23,7 @@ my $no_heuristic;
 my $no_grub;
 my $long_help;
 my $print_version;
+my $verbose;
 
 GetOptions(
     'help|h'           => \$help,
@@ -31,6 +32,7 @@ GetOptions(
     'no-heuristic'     => \$no_heuristic,
     'no-grub'          => \$no_grub,
     'version|v'        => \$print_version,
+    'verbose'          => \$verbose,
 ) or pod2usage( -verbose => 0 );
 
 pod2usage( -verbose => 1 ) if ($help);
@@ -79,7 +81,18 @@ $                                   # Line end anchor
 !x;
 
 my ( $running_version, $running_build ) = fetch_running_version();
-my ( $filename, $image_version, $image_build ) = fetch_image_version($kernel_image);
+
+my $filename;
+
+unless ($kernel_image) {
+    logger("No kernel image filename specified");
+    $filename = get_default_kernel_image_filename();
+} else {
+    logger("Kernel image supplied on command line: $kernel_image");
+    $filename = $kernel_image
+}
+
+my ( $image_version, $image_build ) = fetch_image_version($filename);
 
 # Include real filename if target is a symlink
 $filename .= ' -> ' . readlink($filename) if ( -l $filename );
@@ -104,6 +117,7 @@ exit 0;
 ########
 
 sub fetch_running_version {
+    logger("Fetching current running kernel version");
 
     open( my $fh, '<', '/proc/version' ) or croak "Can't open /proc/version: $!";
 
@@ -118,16 +132,19 @@ sub fetch_running_version {
        croak "Didn't get a version line out of /proc/version";
     }
 
+    logger("    version: $running_version, build: $running_build");
+
     return $running_version, $running_build;
 }
 
 sub fetch_image_version {
-
     my ($filename) = @_;
 
     unless ($filename) {
-        $filename = get_default_kernel_image_filename();
+        croak "No kernel image filename specified";
     }
+
+    logger("Fetching version from local kernel image: $filename");
 
     my $image_version;
     my $image_build;
@@ -164,35 +181,45 @@ sub fetch_image_version {
 
     croak "Didn't get a version line out of $filename" unless $image_version;
 
-    return $filename, $image_version, $image_build;
+    logger("\tversion: $image_version, build: $image_build"); 
+
+    return $image_version, $image_build;
 }
 
 sub get_default_kernel_image_filename {
 
     my $filename;
 
+    logger("Looking for default kernel image");
+
     # First, check if we can find a default entry in the grub config
     unless ($no_grub) {
+        logger("\tSearching in grub config");
         $filename = fetch_grub_default_kernel_image();
         
         if ($filename) {
+            logger("\tFound kernel in grub config: $filename");
             return $filename;
         }
     }
 
     # See if either /vmlinuz or /boot/vmlinuz exist
 
+    logger("\tLooking at default locations: /vmlinuz /boot/vmlinuz");
     for my $prefix (qw( / /boot/)) {
         if ( -e $prefix . 'vmlinuz' ) {
             $filename = $prefix . 'vmlinuz';
+            logger("\tFound kernel image at $filename");
             return $filename;
         }
     }
 
     # If this wasn't successfull and heuristic mode is enabled, widen our search
     unless ($no_heuristic) {
+        logger("\tUsing heuristic to find kernel image");
         $filename = find_heuristic_kernel_image();
         if ($filename) {
+            logger("\tFound kernel image at $filename");
             return $filename;
         }
         else {
@@ -214,6 +241,9 @@ sub get_default_kernel_image_filename {
 # or undef on failure
 
 sub find_heuristic_kernel_image {
+    logger("Lookig for kernel image heuristically"); 
+
+    my $filename;
 
     # We're looking for files and symlinks named vmlinuz at / and /boot
     for my $directory (qw( / /boot/)) {
@@ -222,18 +252,25 @@ sub find_heuristic_kernel_image {
         my ( @symlinks, @files );
 
         for my $entry (@entries) {
+            logger("\tAdding $entry to candidates");
             push @symlinks, $entry if ( -l $entry );
             push @files,    $entry if ( -f $entry );
         }
 
         # Return the _SHORTEST_ symlink
         if (@symlinks) {
-            return ( sort { length($a) <=> length($b) } @symlinks )[0];
+            logger("\tFound symlinks: @symlinks");
+            $filename = ( sort { length($a) <=> length($b) } @symlinks )[0];
+            logger("\tUsing symlink $filename");
+            return $filename;
         }
 
         # If no suitable symlink exist - return the kernel with the "highest" version
-        if (@entries) {
-            return ( reverse sort { sort_versionstring() } @entries )[0];
+        if (@files) {
+            logger("\tFound kernel images: @files");
+            $filename = ( reverse sort { sort_versionstring() } @files )[0];
+            logger("\tUsing image $filename");
+            return $filename;
         }
     }
     return;
@@ -241,6 +278,8 @@ sub find_heuristic_kernel_image {
 
 sub fetch_grub_default_kernel_image {
     my @candidates = qw( /boot/grub/grub.cfg /boot/grub/grub.conf );
+
+    logger("Looking for GRUB config files at @candidates");
 
     my $path;
     for my $candidate (@candidates) {
@@ -250,7 +289,12 @@ sub fetch_grub_default_kernel_image {
         }
     }
 
-    return unless $path;
+    unless ($path) {
+        logger("\tDidn't find a grub config which exists and is readable");
+        return;
+    }
+
+    logger ("\tOpening GRUB config at $path");
 
     open( my $fh, '<', $path ) or croak "Can't open $path: $!";
     my @grub_config = <$fh>;
@@ -268,17 +312,25 @@ sub fetch_grub_default_kernel_image {
 
     for my $grub_line (@grub_config) {
         if ( $grub_line =~ qr/^\s*(?:kernel|linux)\s+(\/[^\s]+)/ ) {
+            logger("\t\tFound image: $1");
             push( @grub_entries, $1 );
             next;
         }
 
         if ( $grub_line =~ qr/^\s*(?:set\s+)?default\s*=\s*"?(\d+)/ ) {
+            logger("\t\tFound 'default' stanza: $1");
             $grub_default = $1;
             next;
         }
     }
 
+    unless (@grub_entries) {
+        logger("\tCouldn't find a kernel in $path");
+        return;
+    }
+
     my $grub_filename = $grub_entries[$grub_default];
+    logger("\tGRUB default kernel image: $grub_filename");
     my ($grub_basename) = fileparse($grub_filename); 
 
     # Since we don't know in which partition/mount-point the image resides,
@@ -290,13 +342,14 @@ sub fetch_grub_default_kernel_image {
         "/$grub_basename"
     );
 
-    for my $prefix (@kernel_image_location_candidates) {
-        if ( -e $prefix . 'vmlinuz' ) {
-            $filename = $prefix . 'vmlinuz';
+    for my $filename (@kernel_image_location_candidates) {
+        if ( -e $filename ) {
+            logger("\tImage exists at $filename");
             return $filename;
         }
     }
 
+    logger("\tCouldn't find kernel image at @kernel_image_location_candidates");
     return;
 }
 
@@ -322,11 +375,18 @@ sub sort_versionstring {
     for my $elem ( 0 .. $#elems_a ) {
         my $result = $elems_a[$elem] <=> $elems_b[$elem];
 
-# We only want to return if one of the version part pairs differ from each other (i.e. "not 0")
+        # We only want to return if one of the version part pairs differ from each other (i.e. "not 0")
         return $result if ($result);
     }
 
     return 0;
+}
+
+sub logger {
+    return unless $verbose;
+    my ($msg) = @_;
+
+    print "$msg\n";
 }
 
 __END__
