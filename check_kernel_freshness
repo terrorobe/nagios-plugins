@@ -21,6 +21,7 @@ my $help;
 my $kernel_image;
 my $no_heuristic;
 my $no_grub;
+my $no_vmlinuz;
 my $long_help;
 my $print_version;
 my $verbose;
@@ -257,7 +258,8 @@ sub find_heuristic_kernel_image {
         for my $entry (@entries) {
             logger("\tAdding $entry to candidates");
             push @symlinks, $entry if ( -l $entry );
-            push @files,    $entry if ( -f $entry );
+            # Perl's -f will return true even if it tests a symlink to a file...
+            push @files,    $entry if ( -f $entry && ! -l $entry );
         }
 
         # Return the _SHORTEST_ symlink
