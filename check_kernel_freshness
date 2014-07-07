@@ -425,7 +425,23 @@ check_kernel_freshness [ -k --kernel-image filename ] [ --no-heuristic ] [ --no-
 
 Filename of the kernel image to check.
 
-B<Default>: /vmlinuz, /boot/vmlinuz
+B<Default>: Uses the modes outlined below to look for the most likely default kernel image
+
+
+=item B<--no-grub>
+
+Disables parsing of GRUB config files.
+
+By default, the files B</etc/grub/grub.cfg> and B</etc/grub/grub.conf> are tested for existance and the first file
+that is found and readable will be analyzed.
+
+
+=item B<--no-vmlinuz>
+
+Don't check if B</vmlinuz> or B</boot/vmlinuz> exists.
+
+By default, the files are tested for existance and the first file that is found and readable will be analyzed.
+
 
 =item B<--no-heuristic>
 
@@ -446,16 +462,6 @@ If multiple files are found, the list is sorted by version strings and the filen
 =back
 
 The first matching occurance is then used.
-
-=item B<--no-grub>
-
-Disables parsing of GRUB config files.
-
-By default, the files B</etc/grub/grub.cfg> and B</etc/grub/grub.conf> are tested for existance and the first file
-that is found and readable will be analyzed.
-
-In the grub config parsing mode, the kernel version strings are not gathered from the kernel image itself, but only
-from it's filename.
 
 
 =back
