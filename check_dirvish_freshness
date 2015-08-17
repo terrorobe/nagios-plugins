@@ -15,6 +15,8 @@ use File::Slurp;
 use Time::ParseDate;
 use DateTime;
 
+use File::Spec;
+
 my $help;
 my $long_help;
 my $warning;
@@ -46,10 +48,21 @@ my @critical_images;
 my @warning_images;
 my $vaultcount;
 
+# Read in list of vaults to skip
+my @skips;
+@skips = read_file("$bank/.check_skip") if ( -f "$bank/.check_skip" && -r "$bank/.check_skip" );
+chomp @skips;
+
 for my $vault ( glob("$bank/*") ) {
 
     $vaultcount++;
     my @images;
+
+    # Skip if it is in the skip list
+    my ($volume,$directories,$file) = File::Spec->splitpath( $vault );
+    if ( $file ~~ @skips ){
+        next;
+    }
 
     for my $image ( glob("$vault/*") ) {
 
