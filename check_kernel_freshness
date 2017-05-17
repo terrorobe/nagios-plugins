@@ -7,7 +7,7 @@
 # This module checks if the current running Linux kernel matches the installed one.
 # See the documentation at the end of the file or use --help
 
-use constant VERSION => '1.1.0';
+use constant VERSION => '1.2.0';
 
 use strict;
 use warnings;
@@ -16,6 +16,7 @@ use Getopt::Long;
 use Pod::Usage;
 use Carp;
 use File::Basename;
+use Regexp::Common qw(time);
 
 my $help;
 my $kernel_image;
@@ -57,6 +58,7 @@ if ($print_version) {
 # Linux version 2.6.32-042stab083.2 (root@rh6-build-x64) (gcc version 4.4.6 20120305 (Red Hat 4.4.6-4) (GCC) ) #1 SMP Fri Nov 8 18:08:40 MSK 2013
 # Linux version 3.2.0-4-amd64 (debian-kernel@lists.debian.org) (gcc version 4.6.3 (Debian 4.6.3-14) ) #1 SMP Debian 3.2.57-3+deb7u2
 # Linux version 3.11-0.bpo.2-amd64 (debian-kernel@lists.debian.org) (gcc version 4.6.3 (Debian 4.6.3-14) ) #1 SMP Debian 3.11.8-1~bpo70+1 (2013-11-21)
+# Linux version 4.4.40-1-pve (root@nora) (gcc version 4.9.2 (Debian 4.9.2-10) ) #1 SMP Wed Feb 8 16:13:20 CET 2017
 
 # strings in kernel image:
 #
@@ -64,6 +66,7 @@ if ($print_version) {
 # 2.6.32-5-openvz-amd64 (unknown@Debian) #1 SMP Tue May 13 17:16:50 UTC 2014
 # 3.2.0-4-amd64 (debian-kernel@lists.debian.org) #1 SMP Debian 3.2.60-1+deb7u1
 # 3.14-0.bpo.1-amd64 (debian-kernel@lists.debian.org) #1 SMP Debian 3.14.7-1~bpo70+1 (2014-06-21)
+# 4.4.40-1-pve (root@nora) #1 SMP PVE 4.4.40-82 (Thu, 23 Feb 2017 15:14:06 +0100)
 
 
 my $versionRE = qr!
@@ -75,6 +78,8 @@ my $versionRE = qr!
         \#\d+                       # Start with the build number
         .*                          # Match anything
         (?:
+            $RE{time}{mail}?        # rfc-2822 date
+            |                       # OR
             20\d{2}                 # Finish with the year
             |                       # OR
             (?:\d+\.\d+\.\d+\S+\s*) # UTS version field Kernel Version
